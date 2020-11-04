@@ -7,6 +7,8 @@ import (
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca/errors"
 	"github.com/OpenNebula/one/src/oca/go/src/goca/schemas/shared"
+
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 func inArray(val string, array []string) (index int) {
@@ -91,4 +93,65 @@ func NoExists(err error) bool {
 	}
 
 	return false
+}
+
+// IDSet is a set implementation that allow to manipulate schema configs based on IDs
+type IDSet struct{ *schema.Set }
+
+func NewIDSet(IDs ...interface{}) *IDSet {
+	return &IDSet{
+		schema.NewSet(schema.HashInt, IDs),
+	}
+}
+
+// InsertConfigIDs insert ID from config via it's name attrName.
+// attrName should be the name of an attribute of type int
+func (s *IDSet) InsertConfigIDs(schemaList []interface{}, attrName string) {
+	for _, item := range schemaList {
+
+		mapItem := item.(map[string]interface{})
+
+		id := mapItem[attrName].(int)
+
+		if id < 0 {
+			continue
+		}
+
+		s.Add(id)
+	}
+}
+
+// DiffConfigIDs achieve a partial diff based on ID (via attrName) and return slice of config that only appear on ref side
+// attrName should be an ID of type int
+func (s *IDSet) DiffConfigIDs(schemaList []interface{}, attrName string) []interface{} {
+
+	partialDiff := make([]interface{}, 0)
+
+	for _, item := range schemaList {
+
+		mapItem := item.(map[string]interface{})
+
+		id := mapItem[attrName].(int)
+
+		if id < 0 {
+			continue
+		}
+
+		if !s.Contains(id) {
+			partialDiff = append(partialDiff, mapItem)
+		}
+	}
+
+	return partialDiff
+}
+
+// partial diff that return a slice of config (map[string]interface{}) that only appear on ref side based on the attrName attribute.
+// attrName should be an ID of type int
+func diffIDsConfig(refVecs, vecs []interface{}, attrName string) []interface{} {
+
+	set := NewIDSet()
+
+	set.InsertConfigIDs(vecs, attrName)
+
+	return set.DiffConfigIDs(refVecs, attrName)
 }

@@ -446,10 +446,11 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		}
 
 		// get the list of disks ID to detach
-		toDetach := disksConfigDiff(attachedDisksCfg, newDisksCfg)
+		toDetach := diffIDsConfig(attachedDisksCfg, newDisksCfg, "image_id")
 
 		// Detach the disks
-		for _, diskConfig := range toDetach {
+		for _, diskIf := range toDetach {
+			diskConfig := diskIf.(map[string]interface{})
 
 			diskID := diskConfig["disk_id"].(int)
 
@@ -461,10 +462,11 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		}
 
 		// get the list of disks to attach
-		toAttach := disksConfigDiff(newDisksCfg, attachedDisksCfg)
+		toAttach := diffIDsConfig(newDisksCfg, attachedDisksCfg, "image_id")
 
 		// Attach the disks
-		for _, diskConfig := range toAttach {
+		for _, diskIf := range toAttach {
+			diskConfig := diskIf.(map[string]interface{})
 
 			imageID := diskConfig["image_id"].(int)
 			diskTpl := makeDiskVector(map[string]interface{}{
