@@ -16,7 +16,10 @@ import (
 	vmk "github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm/keys"
 )
 
-var vmDiskUpdateReadyStates = []string{"RUNNING", "POWEROFF"}
+var (
+	vmDiskUpdateReadyStates = []string{"RUNNING", "POWEROFF"}
+	vmNICUpdateReadyStates  = vmDiskUpdateReadyStates
+)
 
 func resourceOpennebulaVirtualMachine() *schema.Resource {
 	return &schema.Resource{
@@ -459,6 +462,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				return fmt.Errorf("vm disk detach: %s", err)
 
 			}
+			d.SetPartial("disk")
 		}
 
 		// get the list of disks to attach
@@ -478,6 +482,65 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			if err != nil {
 				return fmt.Errorf("vm disk attach: %s", err)
 			}
+			d.SetPartial("disk")
+		}
+	}
+
+	if d.HasChange("nic") {
+
+		log.Printf("[INFO] Update NIC configuration")
+
+		old, new := d.GetChange("nic")
+		attachedNicsCfg := old.([]interface{})
+		newNicsCfg := new.([]interface{})
+
+		timeout := d.Get("timeout").(int)
+
+		// wait for the VM to be ready for attach operations
+		_, err = waitForVMState(vmc, timeout, vmNICUpdateReadyStates...)
+		if err != nil {
+			return fmt.Errorf(
+				"waiting for virtual machine (ID:%d) to be in state %s: %s", vmc.ID, strings.Join(vmNICUpdateReadyStates, " "), err)
+		}
+
+		// get the list of nics ID to detach
+		toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
+
+		// Detach the nics
+		for _, nicIf := range toDetach {
+			nicConfig := nicIf.(map[string]interface{})
+
+			nicID := nicConfig["nic_id"].(int)
+
+			err := vmNICDetach(vmc, timeout, nicID)
+			if err != nil {
+				return fmt.Errorf("vm disk detach: %s", err)
+
+			}
+			d.SetPartial("nic")
+		}
+
+		// get the list of nics to attach
+		toAttach := diffIDsConfig(newNicsCfg, attachedNicsCfg, "network_id")
+
+		// Attach the nics
+		for _, nicIf := range toAttach {
+			nicConfig := nicIf.(map[string]interface{})
+
+			nicTpl := makeNICVector(map[string]interface{}{
+				"network_id":      nicConfig["network_id"],
+				"ip":              nicConfig["ip"],
+				"security_groups": nicConfig["security_groups"],
+				"model":           nicConfig["model"],
+				"physical_device": nicConfig["physical_device"],
+			})
+
+			err := vmNICAttach(vmc, timeout, nicTpl)
+			if err != nil {
+				return fmt.Errorf("vm disk attach: %s", err)
+			}
+
+			d.SetPartial("nic")
 		}
 	}
 
