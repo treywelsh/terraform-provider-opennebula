@@ -441,13 +441,6 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		timeout := d.Get("timeout").(int)
 
-		// wait for the VM to be ready for attach operations
-		_, err = waitForVMState(vmc, timeout, vmDiskUpdateReadyStates...)
-		if err != nil {
-			return fmt.Errorf(
-				"waiting for virtual machine (ID:%d) to be in state %s: %s", vmc.ID, strings.Join(vmDiskUpdateReadyStates, " "), err)
-		}
-
 		// get the list of disks ID to detach
 		toDetach := diffIDsConfig(attachedDisksCfg, newDisksCfg, "image_id")
 
@@ -495,13 +488,6 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		newNicsCfg := new.([]interface{})
 
 		timeout := d.Get("timeout").(int)
-
-		// wait for the VM to be ready for attach operations
-		_, err = waitForVMState(vmc, timeout, vmNICUpdateReadyStates...)
-		if err != nil {
-			return fmt.Errorf(
-				"waiting for virtual machine (ID:%d) to be in state %s: %s", vmc.ID, strings.Join(vmNICUpdateReadyStates, " "), err)
-		}
 
 		// get the list of nics ID to detach
 		toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
