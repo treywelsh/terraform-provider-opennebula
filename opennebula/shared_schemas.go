@@ -22,7 +22,6 @@ func nicSchema() *schema.Schema {
 			Schema: map[string]*schema.Schema{
 				"ip": {
 					Type:     schema.TypeString,
-					Computed: true,
 					Optional: true,
 				},
 				"mac": {
@@ -32,7 +31,6 @@ func nicSchema() *schema.Schema {
 				},
 				"model": {
 					Type:     schema.TypeString,
-					Computed: true,
 					Optional: true,
 				},
 				"network_id": {
@@ -45,7 +43,6 @@ func nicSchema() *schema.Schema {
 				},
 				"physical_device": {
 					Type:     schema.TypeString,
-					Computed: true,
 					Optional: true,
 				},
 				"security_groups": {
