@@ -7,6 +7,8 @@ import (
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca/errors"
 	"github.com/OpenNebula/one/src/oca/go/src/goca/schemas/shared"
+
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 func inArray(val string, array []string) (index int) {
@@ -94,30 +96,12 @@ func NoExists(err error) bool {
 }
 
 // IDSet is a set implementation that allow to manipulate schema configs based on IDs
-type IDSet struct {
-	m map[int]struct{}
-}
+type IDSet struct{ *schema.Set }
 
-func NewIDSet(cap int) *IDSet {
+func NewIDSet(IDs ...interface{}) *IDSet {
 	return &IDSet{
-		m: make(map[int]struct{}, cap),
+		schema.NewSet(schema.HashInt, IDs),
 	}
-}
-
-func (s *IDSet) Add(el int) {
-	if s.Contains(el) {
-		return
-	}
-	s.m[el] = struct{}{}
-}
-
-func (s *IDSet) Remove(el int) {
-	delete(s.m, el)
-}
-
-func (s *IDSet) Contains(el int) bool {
-	_, ok := s.m[el]
-	return ok
 }
 
 // InsertConfigIDs insert ID from config via it's name attrName.
@@ -165,7 +149,7 @@ func (s *IDSet) DiffConfigIDs(schemaList []interface{}, attrName string) []inter
 // attrName should be an ID of type int
 func diffIDsConfig(refVecs, vecs []interface{}, attrName string) []interface{} {
 
-	set := NewIDSet(len(refVecs))
+	set := NewIDSet()
 
 	set.InsertConfigIDs(vecs, attrName)
 
