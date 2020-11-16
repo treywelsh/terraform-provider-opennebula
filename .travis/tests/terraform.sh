@@ -32,4 +32,4 @@ go get github.com/mattn/goveralls
 make build
 
 # Run tests
-make testacc
+TF_LOG=DEBUG make testacc
