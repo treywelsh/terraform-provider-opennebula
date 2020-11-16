@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
@@ -649,6 +650,9 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			diskVMFields(),
 			"image_id")
 
+		log.Printf("[DEBUG] disk to detach: %s", pretty.Sprint(toDetach))
+		log.Printf("[DEBUG] disk to attach: %s", pretty.Sprint(toAttach))
+
 		// Detach the disks
 		for _, diskIf := range toDetach {
 			diskConfig := diskIf.(map[string]interface{})
@@ -706,6 +710,9 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			"mac",
 			"security_groups",
 			"physical_device")
+
+		log.Printf("[DEBUG] nic to detach: %s", pretty.Sprint(toDetach))
+		log.Printf("[DEBUG] nic to attach: %s", pretty.Sprint(toAttach))
 
 		// Detach the nics
 		for _, nicIf := range toDetach {
