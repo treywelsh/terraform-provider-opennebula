@@ -500,7 +500,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 			err := vmNICDetach(vmc, timeout, nicID)
 			if err != nil {
-				return fmt.Errorf("vm disk detach: %s", err)
+				return fmt.Errorf("vm nic detach: %s", err)
 
 			}
 			d.SetPartial("nic")
@@ -523,7 +523,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 			err := vmNICAttach(vmc, timeout, nicTpl)
 			if err != nil {
-				return fmt.Errorf("vm disk attach: %s", err)
+				return fmt.Errorf("vm nic attach: %s", err)
 			}
 
 			d.SetPartial("nic")
