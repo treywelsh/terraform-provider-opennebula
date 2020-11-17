@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
@@ -484,8 +485,14 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		log.Printf("[INFO] Update NIC configuration")
 
 		old, new := d.GetChange("nic")
+		getNic := d.Get("nic")
+
 		attachedNicsCfg := old.([]interface{})
 		newNicsCfg := new.([]interface{})
+
+		log.Printf("[INFO] old NIC: %s", pretty.Sprint(old))
+		log.Printf("[INFO] new NIC: %s", pretty.Sprint(new))
+		log.Printf("[INFO] get NIC: %s", pretty.Sprint(getNic))
 
 		timeout := d.Get("timeout").(int)
 
