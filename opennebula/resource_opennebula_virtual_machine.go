@@ -513,13 +513,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		for _, nicIf := range toAttach {
 			nicConfig := nicIf.(map[string]interface{})
 
-			nicTpl := makeNICVector(map[string]interface{}{
-				"network_id":      nicConfig["network_id"],
-				"ip":              nicConfig["ip"],
-				"security_groups": nicConfig["security_groups"],
-				"model":           nicConfig["model"],
-				"physical_device": nicConfig["physical_device"],
-			})
+			nicTpl := makeNICVector(nicConfig)
 
 			err := vmNICAttach(vmc, timeout, nicTpl)
 			if err != nil {
