@@ -396,7 +396,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		// TODO: fix it after 5.10 release
 		// Force the "decrypt" bool to false to keep ONE 5.8 behavior
 		vm, err := vmc.Info(false)
-		d.SetPartial("name")
+		//d.SetPartial("name")
 		log.Printf("[INFO] Successfully updated name (%s) for VM ID %x\n", vm.Name, vm.ID)
 	}
 
@@ -407,7 +407,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				return err
 			}
 		}
-		d.SetPartial("permissions")
+		//d.SetPartial("permissions")
 		log.Printf("[INFO] Successfully updated Permissions VM %s\n", vm.Name)
 	}
 
@@ -456,7 +456,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				return fmt.Errorf("vm disk detach: %s", err)
 
 			}
-			d.SetPartial("disk")
+			//d.SetPartial("disk")
 		}
 
 		// get the list of disks to attach
@@ -476,7 +476,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			if err != nil {
 				return fmt.Errorf("vm disk attach: %s", err)
 			}
-			d.SetPartial("disk")
+			//d.SetPartial("disk")
 		}
 	}
 
@@ -510,7 +510,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				return fmt.Errorf("vm disk detach: %s", err)
 
 			}
-			d.SetPartial("nic")
+			//d.SetPartial("nic")
 		}
 
 		// get the list of nics to attach
@@ -527,7 +527,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				return fmt.Errorf("vm disk attach: %s", err)
 			}
 
-			d.SetPartial("nic")
+			//d.SetPartial("nic")
 		}
 	}
 
