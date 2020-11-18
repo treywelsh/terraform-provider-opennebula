@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
@@ -476,14 +477,25 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		log.Printf("[INFO] Update NIC configuration")
 
+		for _, nic := range vm.Template.GetNICs() {
+			log.Printf("[INFO] Attached NIC: %s", nic)
+		}
+
 		old, new := d.GetChange("nic")
 		attachedNicsCfg := old.([]interface{})
 		newNicsCfg := new.([]interface{})
+
+		getNic := d.Get("nic")
+
+		log.Printf("[INFO] old NIC: %s", pretty.Sprint(old))
+		log.Printf("[INFO] new NIC: %s", pretty.Sprint(new))
+		log.Printf("[INFO] get NIC: %s", pretty.Sprint(getNic))
 
 		timeout := d.Get("timeout").(int)
 
 		// get the list of nics ID to detach
 		toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
+		log.Printf("[INFO] toDetach: %s", pretty.Sprint(toDetach))
 
 		// Detach the nics
 		for _, nicIf := range toDetach {
@@ -500,6 +512,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		// get the list of nics to attach
 		toAttach := diffIDsConfig(newNicsCfg, attachedNicsCfg, "network_id")
+		log.Printf("[INFO] toAttach: %s", pretty.Sprint(toAttach))
 
 		// Attach the nics
 		for _, nicIf := range toAttach {
