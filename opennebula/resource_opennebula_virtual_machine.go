@@ -373,7 +373,7 @@ func resourceOpennebulaVirtualMachineExists(d *schema.ResourceData, meta interfa
 func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	// Enable partial state mode
-	d.Partial(true)
+	//d.Partial(true)
 
 	//Get VM
 	vmc, err := getVirtualMachineController(d, meta)
@@ -533,7 +533,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 	// We succeeded, disable partial mode. This causes Terraform to save
 	// save all fields again.
-	d.Partial(false)
+	//d.Partial(false)
 
 	return nil
 }
