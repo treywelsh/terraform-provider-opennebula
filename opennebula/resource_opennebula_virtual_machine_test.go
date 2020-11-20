@@ -585,6 +585,22 @@ resource "opennebula_virtual_network" "net1" {
 	clusters = [0]
   }
 
+  resource "opennebula_virtual_network" "net3" {
+	name = "test-net3"
+	type            = "dummy"
+	bridge          = "onebr"
+	mtu             = 1500
+	ar {
+	  ar_type = "IP4"
+	  size    = 16
+	  ip4     = "172.16.100.140"
+	}
+	permissions = "642"
+	group = "oneadmin"
+	security_groups = [0]
+	clusters = [0]
+  }
+
 
 resource "opennebula_virtual_machine" "test" {
 	name        = "test-virtual_machine"
@@ -617,6 +633,10 @@ resource "opennebula_virtual_machine" "test" {
 	nic {
 		network_id = opennebula_virtual_network.net1.id
 		ip = "172.16.100.131"
+	}
+	nic {
+		network_id = opennebula_virtual_network.net3.id
+		ip = "172.16.100.141"
 	}
   
 	timeout = 5
@@ -657,6 +677,22 @@ resource "opennebula_virtual_network" "net1" {
 	clusters = [0]
   }
 
+  resource "opennebula_virtual_network" "net3" {
+	name = "test-net3"
+	type            = "dummy"
+	bridge          = "onebr"
+	mtu             = 1500
+	ar {
+	  ar_type = "IP4"
+	  size    = 16
+	  ip4     = "172.16.100.140"
+	}
+	permissions = "642"
+	group = "oneadmin"
+	security_groups = [0]
+	clusters = [0]
+  }
+
   resource "opennebula_virtual_machine" "test" {
 	  name        = "test-virtual_machine"
 	  group       = "oneadmin"
@@ -688,6 +724,10 @@ resource "opennebula_virtual_network" "net1" {
 	  nic {
 		  network_id = opennebula_virtual_network.net2.id
 		  ip = "172.16.100.111"
+	  }
+	  nic {
+		network_id = opennebula_virtual_network.net3.id
+		ip = "172.16.100.141"
 	  }
 	
 	  timeout = 5
@@ -721,6 +761,22 @@ resource "opennebula_virtual_network" "net1" {
 	  ar_type = "IP4"
 	  size    = 16
 	  ip4     = "172.16.100.110"
+	}
+	permissions = "642"
+	group = "oneadmin"
+	security_groups = [0]
+	clusters = [0]
+  }
+
+  resource "opennebula_virtual_network" "net3" {
+	name = "test-net3"
+	type            = "dummy"
+	bridge          = "onebr"
+	mtu             = 1500
+	ar {
+	  ar_type = "IP4"
+	  size    = 16
+	  ip4     = "172.16.100.140"
 	}
 	permissions = "642"
 	group = "oneadmin"

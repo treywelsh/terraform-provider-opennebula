@@ -686,5 +686,12 @@ func resourceVMCustomizeDiff(diff *schema.ResourceDiff, v interface{}) error {
 		}
 	}
 
+	if diff.HasChange("nic") {
+		err := diff.SetNewComputed("nic")
+		if err != nil {
+			log.Printf("[INFO] ERROR: %s", err)
+		}
+	}
+
 	return nil
 }

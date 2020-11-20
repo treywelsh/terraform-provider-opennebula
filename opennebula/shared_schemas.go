@@ -18,6 +18,7 @@ func nicSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Definition of network adapter(s) assigned to the Virtual Machine",
+		Computed:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"ip": {
