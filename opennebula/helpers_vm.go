@@ -97,45 +97,45 @@ func vmDiskDetach(vmc *goca.VMController, timeout int, diskID int) error {
 }
 
 // vmNICAttach is an helper that synchronously attach a nic
-func vmNICAttach(vmc *goca.VMController, timeout int, nicTpl *shared.NIC) error {
+func vmNICAttach(vmc *goca.VMController, timeout int, nicTpl *shared.NIC) (int, error) {
 
 	networkID, err := nicTpl.GetI(shared.NetworkID)
 	if err != nil {
-		return fmt.Errorf("NIC template doesn't have a network ID")
+		return -1, fmt.Errorf("NIC template doesn't have a network ID")
 	}
 
 	log.Printf("[DEBUG] Attach NIC to network (ID:%d)", networkID)
 
 	err = vmc.AttachNIC(nicTpl.String())
 	if err != nil {
-		return fmt.Errorf("can't attach network with ID:%d: %s\n", networkID, err)
+		return -1, fmt.Errorf("can't attach network with ID:%d: %s\n", networkID, err)
 	}
 
 	// wait before checking NIC
 	_, err = waitForVMState(vmc, timeout, vmNICUpdateReadyStates...)
 	if err != nil {
-		return fmt.Errorf(
+		return -1, fmt.Errorf(
 			"waiting for virtual machine (ID:%d) to be in state %s: %s", vmc.ID, strings.Join(vmNICUpdateReadyStates, " "), err)
 	}
 
 	// Check that NIC is attached
 	vm, err := vmc.Info(false)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	for _, attachedNic := range vm.Template.GetNICs() {
 
 		attachedNicNetworkID, _ := attachedNic.GetI(shared.NetworkID)
 		if attachedNicNetworkID == networkID {
-			return nil
+			return attachedNic.GetI(shared.NICID)
 		}
 	}
 
 	// If NIC not attached, retrieve error message
 	vmerr, _ := vm.UserTemplate.Get(vmk.Error)
 
-	return fmt.Errorf("network ID %d: %s", networkID, vmerr)
+	return -1, fmt.Errorf("network ID %d: %s", networkID, vmerr)
 }
 
 // vmNICDetach is an helper that synchronously detach a NIC
