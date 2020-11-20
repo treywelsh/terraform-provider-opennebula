@@ -462,45 +462,50 @@ func flattenTemplate(d *schema.ResourceData, vmTemplate *vm.Template, tplTags bo
 		}
 	}
 
-	// Set Nics to resource
-	for i, nic := range vmTemplate.GetNICs() {
-		sg := make([]int, 0)
-		ip, _ := nic.Get(shared.IP)
-		mac, _ := nic.Get(shared.MAC)
-		physicalDevice, _ := nic.GetStr("PHYDEV")
-		network, _ := nic.Get(shared.Network)
-		nicId, _ := nic.ID()
+	// TODO: for VM nic overlapping with opennebula_virtual_machine_nic resource
+	if d.IsNewResource() {
+		// Set Nics to resource
+		for i, nic := range vmTemplate.GetNICs() {
 
-		model, _ := nic.Get(shared.Model)
-		networkId, _ := nic.GetI(shared.NetworkID)
-		securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
+			sg := make([]int, 0)
+			ip, _ := nic.Get(shared.IP)
+			mac, _ := nic.Get(shared.MAC)
+			physicalDevice, _ := nic.GetStr("PHYDEV")
+			network, _ := nic.Get(shared.Network)
+			nicId, _ := nic.ID()
 
-		sgString := strings.Split(securityGroupsArray, ",")
-		for _, s := range sgString {
-			sgInt, _ := strconv.ParseInt(s, 10, 32)
-			sg = append(sg, int(sgInt))
+			model, _ := nic.Get(shared.Model)
+			networkId, _ := nic.GetI(shared.NetworkID)
+			securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
+
+			sgString := strings.Split(securityGroupsArray, ",")
+			for _, s := range sgString {
+				sgInt, _ := strconv.ParseInt(s, 10, 32)
+				sg = append(sg, int(sgInt))
+			}
+
+			nicList = append(nicList, map[string]interface{}{
+				"ip":              ip,
+				"mac":             mac,
+				"network_id":      networkId,
+				"physical_device": physicalDevice,
+				"network":         network,
+				"nic_id":          nicId,
+				"model":           model,
+				"security_groups": sg,
+			})
+			if i == 0 {
+				d.Set("ip", ip)
+			}
 		}
 
-		nicList = append(nicList, map[string]interface{}{
-			"ip":              ip,
-			"mac":             mac,
-			"network_id":      networkId,
-			"physical_device": physicalDevice,
-			"network":         network,
-			"nic_id":          nicId,
-			"model":           model,
-			"security_groups": sg,
-		})
-		if i == 0 {
-			d.Set("ip", ip)
+		if len(nicList) > 0 {
+			err = d.Set("nic", nicList)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	if len(nicList) > 0 {
-		err = d.Set("nic", nicList)
-		if err != nil {
-			return err
-		}
 	}
 
 	if tplTags {

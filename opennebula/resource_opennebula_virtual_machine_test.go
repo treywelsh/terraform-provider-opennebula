@@ -134,43 +134,28 @@ func TestAccVirtualMachineDiskUpdate(t *testing.T) {
 	})
 }
 
-func TestAccVirtualMachineNICUpdate(t *testing.T) {
+func TestAccVirtualMachineStaticNIC(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckVirtualMachineDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccVirtualMachineTemplateConfigBasic,
-				Check: resource.ComposeTestCheckFunc(
-					testAccSetDSdummy(),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "0"),
-				),
-			},
-			{
-				Config: testAccVirtualMachineTemplateConfigNIC,
+				Config: testAccVirtualMachineStaticNIC,
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "1"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.0.ip", "172.16.100.131"),
 				),
 			},
-			{
-				Config: testAccVirtualMachineTemplateConfigNICUpdate,
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "1"),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.0.ip", "172.16.100.111"),
-				),
-			},
-			{
-				Config: testAccVirtualMachineTemplateConfigNICDetached,
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "0"),
-				),
-			},
+			/*
+				{
+					Config: testAccVirtualMachineNICDetached,
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "0"),
+					),
+				},
+			*/
 		},
 	})
 }
@@ -205,6 +190,7 @@ func TestAccVirtualMachinePending(t *testing.T) {
 		},
 	})
 }
+
 func testAccCheckVirtualMachineDestroy(s *terraform.State) error {
 	controller := testAccProvider.Meta().(*goca.Controller)
 
@@ -551,7 +537,7 @@ resource "opennebula_virtual_machine" "test" {
 }
 `
 
-var testAccVirtualMachineTemplateConfigNIC = `
+var testAccVirtualMachineStaticNIC = `
 
 resource "opennebula_virtual_network" "net1" {
 	name = "test-net1"
@@ -567,24 +553,7 @@ resource "opennebula_virtual_network" "net1" {
 	group = "oneadmin"
 	security_groups = [0]
 	clusters = [0]
-  }
-
-  resource "opennebula_virtual_network" "net2" {
-	name = "test-net2"
-	type            = "dummy"
-	bridge          = "onebr"
-	mtu             = 1500
-	ar {
-	  ar_type = "IP4"
-	  size    = 16
-	  ip4     = "172.16.100.110"
-	}
-	permissions = "642"
-	group = "oneadmin"
-	security_groups = [0]
-	clusters = [0]
-  }
-
+}
 
 resource "opennebula_virtual_machine" "test" {
 	name        = "test-virtual_machine"
@@ -623,7 +592,8 @@ resource "opennebula_virtual_machine" "test" {
 }
 `
 
-var testAccVirtualMachineTemplateConfigNICUpdate = `
+/*
+var testAccVirtualMachineNICDetached = `
 
 resource "opennebula_virtual_network" "net1" {
 	name = "test-net1"
@@ -639,94 +609,7 @@ resource "opennebula_virtual_network" "net1" {
 	group = "oneadmin"
 	security_groups = [0]
 	clusters = [0]
-  }
-
-  resource "opennebula_virtual_network" "net2" {
-	name = "test-net2"
-	type            = "dummy"
-	bridge          = "onebr"
-	mtu             = 1500
-	ar {
-	  ar_type = "IP4"
-	  size    = 16
-	  ip4     = "172.16.100.110"
-	}
-	permissions = "642"
-	group = "oneadmin"
-	security_groups = [0]
-	clusters = [0]
-  }
-
-  resource "opennebula_virtual_machine" "test" {
-	  name        = "test-virtual_machine"
-	  group       = "oneadmin"
-	  permissions = "642"
-	  memory = 128
-	  cpu = 0.1
-	
-	  context = {
-		NETWORK  = "YES"
-		SET_HOSTNAME = "$NAME"
-	  }
-	
-	  graphics {
-		type   = "VNC"
-		listen = "0.0.0.0"
-		keymap = "en-us"
-	  }
-	
-	  os {
-		arch = "x86_64"
-		boot = ""
-	  }
-	
-	  tags = {
-		env = "prod"
-		customer = "test"
-	  }
-  
-	  nic {
-		  network_id = opennebula_virtual_network.net2.id
-		  ip = "172.16.100.111"
-	  }
-	
-	  timeout = 5
 }
-`
-
-var testAccVirtualMachineTemplateConfigNICDetached = `
-
-resource "opennebula_virtual_network" "net1" {
-	name = "test-net1"
-	type            = "dummy"
-	bridge          = "onebr"
-	mtu             = 1500
-	ar {
-	  ar_type = "IP4"
-	  size    = 12
-	  ip4     = "172.16.100.130"
-	}
-	permissions = "642"
-	group = "oneadmin"
-	security_groups = [0]
-	clusters = [0]
-  }
-
-  resource "opennebula_virtual_network" "net2" {
-	name = "test-net2"
-	type            = "dummy"
-	bridge          = "onebr"
-	mtu             = 1500
-	ar {
-	  ar_type = "IP4"
-	  size    = 16
-	  ip4     = "172.16.100.110"
-	}
-	permissions = "642"
-	group = "oneadmin"
-	security_groups = [0]
-	clusters = [0]
-  }
 
 resource "opennebula_virtual_machine" "test" {
 	name        = "test-virtual_machine"
@@ -734,28 +617,28 @@ resource "opennebula_virtual_machine" "test" {
 	permissions = "642"
 	memory = 128
 	cpu = 0.1
-  
+
 	context = {
 	  NETWORK  = "YES"
 	  SET_HOSTNAME = "$NAME"
 	}
-  
+
 	graphics {
 	  type   = "VNC"
 	  listen = "0.0.0.0"
 	  keymap = "en-us"
 	}
-  
+
 	os {
 	  arch = "x86_64"
 	  boot = ""
 	}
-  
+
 	tags = {
 	  env = "prod"
 	  customer = "test"
 	}
-  
+
 	timeout = 5
 }
-`
+`*/
