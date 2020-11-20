@@ -9,17 +9,11 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
 	"github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm"
 	vmk "github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm/keys"
-)
-
-var (
-	vmDiskUpdateReadyStates = []string{"RUNNING", "POWEROFF"}
-	vmNICUpdateReadyStates  = vmDiskUpdateReadyStates
 )
 
 func resourceOpennebulaVirtualMachine() *schema.Resource {
@@ -265,7 +259,6 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 	if err != nil {
 		return fmt.Errorf(
 			"Error waiting for virtual machine (%s) to be in state %s: %s", d.Id(), expectedState, err)
-
 	}
 
 	//Set the permissions on the VM if it was defined, otherwise use the UMASK in OpenNebula
@@ -475,56 +468,49 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 	if d.HasChange("nic") {
 
-		log.Printf("[INFO] Update NIC configuration")
+		log.Printf("[WARN] Static nic configuration won't be updated")
 
 		for _, nic := range vm.Template.GetNICs() {
 			log.Printf("[INFO] Attached NIC: %s", nic)
 		}
+		/*
+			old, new := d.GetChange("nic")
+			attachedNicsCfg := old.([]interface{})
+			newNicsCfg := new.([]interface{})
 
-		old, new := d.GetChange("nic")
-		attachedNicsCfg := old.([]interface{})
-		newNicsCfg := new.([]interface{})
+			timeout := d.Get("timeout").(int)
 
-		getNic := d.Get("nic")
+			// get the list of nics ID to detach
+			toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
+			log.Printf("[INFO] toDetach: %s", pretty.Sprint(toDetach))
 
-		log.Printf("[INFO] old NIC: %s", pretty.Sprint(old))
-		log.Printf("[INFO] new NIC: %s", pretty.Sprint(new))
-		log.Printf("[INFO] get NIC: %s", pretty.Sprint(getNic))
+			// Detach the nics
+			for _, nicIf := range toDetach {
+				nicConfig := nicIf.(map[string]interface{})
 
-		timeout := d.Get("timeout").(int)
+				nicID := nicConfig["nic_id"].(int)
 
-		// get the list of nics ID to detach
-		toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
-		log.Printf("[INFO] toDetach: %s", pretty.Sprint(toDetach))
+				err := vmNICDetach(vmc, timeout, nicID)
+				if err != nil {
+					return fmt.Errorf("vm nic detach: %s", err)
 
-		// Detach the nics
-		for _, nicIf := range toDetach {
-			nicConfig := nicIf.(map[string]interface{})
-
-			nicID := nicConfig["nic_id"].(int)
-
-			err := vmNICDetach(vmc, timeout, nicID)
-			if err != nil {
-				return fmt.Errorf("vm nic detach: %s", err)
-
+				}
 			}
-		}
 
-		// get the list of nics to attach
-		toAttach := diffIDsConfig(newNicsCfg, attachedNicsCfg, "network_id")
-		log.Printf("[INFO] toAttach: %s", pretty.Sprint(toAttach))
+			// Warn the user that the VM NIC won't be attached here
+			// For updatable NICs, use virtual machine NIC resource instead
 
-		// Attach the nics
-		for _, nicIf := range toAttach {
-			nicConfig := nicIf.(map[string]interface{})
+			toAttach := diffIDsConfig(newNicsCfg, attachedNicsCfg, "network_id")
+			log.Printf("[INFO] toAttach: %s", pretty.Sprint(toAttach))
 
-			nicTpl := makeNICVector(nicConfig)
-
-			err := vmNICAttach(vmc, timeout, nicTpl)
-			if err != nil {
-				return fmt.Errorf("vm nic attach: %s", err)
+			// Attach the nics
+			for _, nicIf := range toAttach {
+				nicConfig := nicIf.(map[string]interface{})
+				log.Printf("[WARN] nic %d ignored, use a ressource instead", nicConfig["id"])
 			}
-		}
+
+		*/
+
 	}
 
 	return nil

@@ -49,6 +49,7 @@ func Provider() *schema.Provider {
 			"opennebula_user":                  resourceOpennebulaUser(),
 			"opennebula_virtual_data_center":   resourceOpennebulaVirtualDataCenter(),
 			"opennebula_virtual_machine":       resourceOpennebulaVirtualMachine(),
+			"opennebula_virtual_machine_nic":   resourceOpennebulaVirtualMachineNIC(),
 			"opennebula_virtual_network":       resourceOpennebulaVirtualNetwork(),
 			"opennebula_virtual_machine_group": resourceOpennebulaVMGroup(),
 		},
