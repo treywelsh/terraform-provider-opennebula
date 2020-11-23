@@ -36,7 +36,18 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 				}
 
 				return false
-			})
+			}),
+			customdiff.ValidateChange("nic", func(old, new, meta interface{}) error {
+
+				oldNICList := old.([]interface{})
+				newNICList := new.([]interface{})
+
+				if len(oldNICList) <= len(newNICList) {
+					return fmt.Errorf("it's not possible to add or modify an inline nic, only suppression is supported, use opennebula_virtual_machine_nic instead")
+				}
+
+				return nil
+			}),
 		),
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
