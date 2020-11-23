@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform/helper/customdiff"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 
@@ -23,12 +24,25 @@ var (
 
 func resourceOpennebulaVirtualMachine() *schema.Resource {
 	return &schema.Resource{
-		Create:        resourceOpennebulaVirtualMachineCreate,
-		Read:          resourceOpennebulaVirtualMachineRead,
-		Exists:        resourceOpennebulaVirtualMachineExists,
-		Update:        resourceOpennebulaVirtualMachineUpdate,
-		Delete:        resourceOpennebulaVirtualMachineDelete,
-		CustomizeDiff: resourceVMCustomizeDiff,
+		Create: resourceOpennebulaVirtualMachineCreate,
+		Read:   resourceOpennebulaVirtualMachineRead,
+		Exists: resourceOpennebulaVirtualMachineExists,
+		Update: resourceOpennebulaVirtualMachineUpdate,
+		Delete: resourceOpennebulaVirtualMachineDelete,
+		CustomizeDiff: customdiff.All(
+			customdiff.ForceNewIf("lcmstate", func(diff *schema.ResourceDiff, meta interface{}) bool {
+
+				// If the VM is in error state, force the VM to be recreated
+				if diff.Get("lcmstate") == vm.BootFailure {
+
+					diff.SetNew("lcmstate", 3)
+
+					return true
+				}
+
+				return false
+			})
+		),
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -665,17 +679,4 @@ func generateVm(d *schema.ResourceData, tplContext *dyn.Vector) (string, error) 
 	log.Printf("[INFO] VM definition: %s", tplStr)
 
 	return tplStr, nil
-}
-
-func resourceVMCustomizeDiff(diff *schema.ResourceDiff, v interface{}) error {
-	// If the VM is in error state, force the VM to be recreated
-	if diff.Get("lcmstate") == 36 {
-		log.Printf("[INFO] VM is in error state, forcing recreate.")
-		diff.SetNew("lcmstate", 3)
-		if err := diff.ForceNew("lcmstate"); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
