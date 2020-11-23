@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform/helper/customdiff"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
@@ -29,7 +30,7 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 		Exists: resourceOpennebulaVirtualMachineExists,
 		Update: resourceOpennebulaVirtualMachineUpdate,
 		Delete: resourceOpennebulaVirtualMachineDelete,
-		CustomizeDiff: customdiff.All(
+		CustomizeDiff: customdiff.Sequence(
 			customdiff.ForceNewIf("lcmstate", func(diff *schema.ResourceDiff, meta interface{}) bool {
 
 				// If the VM is in error state, force the VM to be recreated
@@ -41,7 +42,25 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 				}
 
 				return false
-			})
+			}),
+			customdiff.ValidateChange("nic", func(old, new, meta interface{}) error {
+
+				log.Printf("[DEBUG] custom diff old %s", pretty.Sprint(old))
+				log.Printf("[DEBUG] custom diff new %s", pretty.Sprint(new))
+
+				return nil
+			}),
+			customdiff.ComputedIf("nic", func(diff *schema.ResourceDiff, meta interface{}) bool {
+				keys := diff.GetChangedKeysPrefix("nic")
+
+				for _, k := range keys {
+					if strings.HasSuffix(k, "network_id") {
+						return true
+					}
+				}
+
+				return false
+			}),
 		),
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
