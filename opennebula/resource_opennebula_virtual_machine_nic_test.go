@@ -26,6 +26,7 @@ func TestAccVirtualMachineNICUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "1"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.0.ip", "172.16.100.131"),
+					resource.TestCheckResourceAttr("opennebula_virtual_machine_nic.test", "ip", "172.16.100.111"),
 				),
 			},
 			{
@@ -34,7 +35,7 @@ func TestAccVirtualMachineNICUpdate(t *testing.T) {
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "name", "test-virtual_machine"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.#", "1"),
 					resource.TestCheckResourceAttr("opennebula_virtual_machine.test", "nic.0.ip", "172.16.100.131"),
-					resource.TestCheckResourceAttr("opennebula_virtual_machine_nic.test", "ip", "172.16.100.111"),
+					resource.TestCheckResourceAttr("opennebula_virtual_machine_nic.test", "ip", "172.16.100.151"),
 				),
 			},
 			{

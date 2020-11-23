@@ -122,16 +122,8 @@ func resourceOpennebulaVirtualMachineNICCreate(d *schema.ResourceData, meta inte
 }
 
 func resourceOpennebulaVirtualMachineNICRead(d *schema.ResourceData, meta interface{}) error {
-
-	vmc, err := getVirtualMachineController(d, meta, -2, -1, -1)
-	if err != nil {
-		if NoExists(err) {
-			log.Printf("[WARN] Removing VM NIC %s from state because it no longer exists in", d.Id())
-			d.SetId("")
-			return nil
-		}
-		return err
-	}
+	controller := meta.(*goca.Controller)
+	vmc := controller.VM(d.Get("vm_id").(int))
 
 	// TODO: fix it after 5.10 release
 	// Force the "decrypt" bool to false to keep ONE 5.8 behavior
@@ -198,11 +190,8 @@ func resourceOpennebulaVirtualMachineNICDelete(d *schema.ResourceData, meta inte
 		return err
 	}
 
-	//Get VM
-	vmc, err := getVirtualMachineController(d, meta)
-	if err != nil {
-		return err
-	}
+	controller := meta.(*goca.Controller)
+	vmc := controller.VM(d.Get("vm_id").(int))
 
 	nicID, err := strconv.ParseInt(d.Id(), 10, 0)
 	if err != nil {
