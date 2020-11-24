@@ -55,8 +55,20 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 
 				for _, k := range keys {
 					if strings.HasSuffix(k, "network_id") {
+
+						log.Printf("[ERROR] custom diff network_id changed, set nic as computed")
 						return true
 					}
+				}
+
+				err := diff.Clear("nic.0.mac")
+				if err != nil {
+					log.Printf("[ERROR] custom diff Clear: %s", err)
+				}
+
+				err = diff.SetNewComputed("nic.0.mac")
+				if err != nil {
+					log.Printf("[ERROR] custom diff SetNewComputed: %s", err)
 				}
 
 				return false
