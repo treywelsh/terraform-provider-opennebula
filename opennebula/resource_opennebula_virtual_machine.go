@@ -126,10 +126,45 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 			"context":  contextSchema(),
 			"disk":     diskSchema(),
 			"graphics": graphicsSchema(),
-			"nic":      nicSchema(),
-			"os":       osSchema(),
-			"vmgroup":  vmGroupSchema(),
-			"tags":     tagsSchema(),
+			"nic": &schema.Schema{
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "Definition of network adapter(s) assigned to the Virtual Machine",
+				Elem: &schema.Resource{
+					Schema: nicFields(map[string]*schema.Schema{
+						"nic_id": {
+							Type:     schema.TypeInt,
+							Computed: true,
+						},
+						"computed_ip": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"computed_mac": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"computed_model": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"computed_physical_device": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"computed_security_groups": {
+							Type:     schema.TypeList,
+							Computed: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeInt,
+							},
+						},
+					}),
+				},
+			},
+			"os":      osSchema(),
+			"vmgroup": vmGroupSchema(),
+			"tags":    tagsSchema(),
 			"ip": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -316,6 +351,36 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 	err = d.Set("permissions", permissionsUnixString(*vm.Permissions))
 	if err != nil {
 		return err
+	}
+
+	// Set Nics to resource
+	nics := vm.Template.GetNICs()
+	nicList := make([]interface{}, 0, len(nics))
+
+	for i, nic := range nics {
+
+		nicID, _ := nic.ID()
+
+		nicConfig := flattenNIC(nic)
+		nicConfig["nic_id"] = nicID
+
+		// copy gathered values as computed
+		for k, v := range nicConfig {
+			computedKey := fmt.Sprintf("computed_%s", k)
+
+			nicConfig[computedKey] = v
+		}
+
+		if i == 0 {
+			d.Set("ip", nicConfig["ip"])
+		}
+	}
+
+	if len(nicList) > 0 {
+		err = d.Set("nic", nicList)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = flattenTemplate(d, &vm.Template, false)
