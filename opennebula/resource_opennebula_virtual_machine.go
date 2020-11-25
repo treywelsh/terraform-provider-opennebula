@@ -12,6 +12,7 @@ import (
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
+	"github.com/OpenNebula/one/src/oca/go/src/goca/schemas/shared"
 	"github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm"
 	vmk "github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm/keys"
 )
@@ -353,34 +354,9 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	// Set Nics to resource
-	nics := vm.Template.GetNICs()
-	nicList := make([]interface{}, 0, len(nics))
-
-	for i, nic := range nics {
-
-		nicID, _ := nic.ID()
-
-		nicConfig := flattenNIC(nic)
-		nicConfig["nic_id"] = nicID
-
-		// copy gathered values as computed
-		for k, v := range nicConfig {
-			computedKey := fmt.Sprintf("computed_%s", k)
-
-			nicConfig[computedKey] = v
-		}
-
-		if i == 0 {
-			d.Set("ip", nicConfig["ip"])
-		}
-	}
-
-	if len(nicList) > 0 {
-		err = d.Set("nic", nicList)
-		if err != nil {
-			return err
-		}
+	err = flattenVMNIC(d, &vm.Template)
+	if err != nil {
+		return err
 	}
 
 	err = flattenTemplate(d, &vm.Template, false)
@@ -393,6 +369,78 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
+	return nil
+}
+
+// flattenVMNIC is similar to flattenNIC but deal with computed_* attributes
+// this is a temporary solution until we can use nested attributes marked computed and optional
+func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
+
+	// Set Nics to resource
+	nics := vmTemplate.GetNICs()
+	nicList := make([]interface{}, 0, len(nics))
+
+	for i, nic := range nics {
+
+		nicID, _ := nic.ID()
+		sg := make([]int, 0)
+		ip, _ := nic.Get(shared.IP)
+		mac, _ := nic.Get(shared.MAC)
+		physicalDevice, _ := nic.GetStr("PHYDEV")
+		network, _ := nic.Get(shared.Network)
+
+		model, _ := nic.Get(shared.Model)
+		networkId, _ := nic.GetI(shared.NetworkID)
+		securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
+
+		sgString := strings.Split(securityGroupsArray, ",")
+		for _, s := range sgString {
+			sgInt, _ := strconv.ParseInt(s, 10, 32)
+			sg = append(sg, int(sgInt))
+		}
+
+		nicRead := map[string]interface{}{
+			"nic_id":                   nicID,
+			"network_id":               networkId,
+			"network":                  network,
+			"computed_ip":              ip,
+			"computed_mac":             mac,
+			"computed_physical_device": physicalDevice,
+			"computed_model":           model,
+			"computed_security_groups": sg,
+		}
+
+		// copy nic config values
+		nicsConfigs := d.Get("nic").([]interface{})
+		for i := 0; i < len(nicsConfigs); i++ {
+			nicConfig := nicsConfigs[i].(map[string]interface{})
+
+			if nicConfig["network_id"] != networkId {
+				continue
+			}
+
+			nicRead["ip"] = nicConfig["ip"]
+			nicRead["mac"] = nicConfig["mac"]
+			nicRead["physical_device"] = nicConfig["physical_device"]
+			nicRead["security_groups"] = nicConfig["security_groups"]
+
+			break
+
+		}
+
+		nicList = append(nicList, nicRead)
+
+		if i == 0 {
+			d.Set("ip", nicRead["computed_ip"])
+		}
+	}
+
+	if len(nicList) > 0 {
+		err := d.Set("nic", nicList)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

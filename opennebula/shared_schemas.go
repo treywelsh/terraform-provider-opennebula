@@ -42,15 +42,17 @@ func nicFields(customFields ...map[string]*schema.Schema) map[string]*schema.Sch
 		},
 		"security_groups": {
 			Type:     schema.TypeList,
-			Computed: true,
+			Optional: true,
 			Elem: &schema.Schema{
 				Type: schema.TypeInt,
 			},
 		},
 	}
 
-	for k, v := range customFields[0] {
-		fields[k] = v
+	for _, m := range customFields {
+		for k, v := range m {
+			fields[k] = v
+		}
 	}
 
 	return fields
