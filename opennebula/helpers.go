@@ -95,63 +95,38 @@ func NoExists(err error) bool {
 	return false
 }
 
-// IDSet is a set implementation that allow to manipulate schema configs based on IDs
-type IDSet struct{ *schema.Set }
-
-func NewIDSet(IDs ...interface{}) *IDSet {
-	return &IDSet{
-		schema.NewSet(schema.HashInt, IDs),
-	}
-}
-
-// InsertConfigIDs insert ID from config via it's name attrName.
-// attrName should be the name of an attribute of type int
-func (s *IDSet) InsertConfigIDs(schemaList []interface{}, attrName string) {
-	for _, item := range schemaList {
-
-		mapItem := item.(map[string]interface{})
-
-		id := mapItem[attrName].(int)
-
-		if id < 0 {
-			continue
-		}
-
-		s.Add(id)
-	}
-}
-
-// DiffConfigIDs achieve a partial diff based on ID (via attrName) and return slice of config that only appear on ref side
-// attrName should be an ID of type int
-func (s *IDSet) DiffConfigIDs(schemaList []interface{}, attrName string) []interface{} {
-
-	partialDiff := make([]interface{}, 0)
-
-	for _, item := range schemaList {
-
-		mapItem := item.(map[string]interface{})
-
-		id := mapItem[attrName].(int)
-
-		if id < 0 {
-			continue
-		}
-
-		if !s.Contains(id) {
-			partialDiff = append(partialDiff, mapItem)
-		}
-	}
-
-	return partialDiff
-}
-
 // partial diff that return a slice of config (map[string]interface{}) that only appear on ref side based on the attrName attribute.
 // attrName should be an ID of type int
-func diffIDsConfig(refVecs, vecs []interface{}, attrName string) []interface{} {
+func diffListConfig(refVecs, vecs []interface{}, s *schema.Resource, attrNames ...string) ([]interface{}, []interface{}) {
 
-	set := NewIDSet()
+	refSet := schema.NewSet(schema.HashResource(s), []interface{}{})
+	for _, iface := range refVecs {
+		sc := iface.(map[string]interface{})
 
-	set.InsertConfigIDs(vecs, attrName)
+		// keep only attrNames values
+		filteredSc := make(map[string]interface{})
+		for _, name := range attrNames {
+			filteredSc[name] = sc[name]
+		}
 
-	return set.DiffConfigIDs(refVecs, attrName)
+		refSet.Add(filteredSc)
+	}
+
+	set := schema.NewSet(schema.HashResource(s), []interface{}{})
+	for _, iface := range vecs {
+		sc := iface.(map[string]interface{})
+
+		// keep only attrNames values
+		filteredSc := make(map[string]interface{})
+		for _, name := range attrNames {
+			filteredSc[name] = sc[name]
+		}
+
+		set.Add(filteredSc)
+	}
+
+	pSet := refSet.Difference(set)
+	mSet := set.Difference(refSet)
+
+	return mSet.List(), pSet.List()
 }

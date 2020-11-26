@@ -127,45 +127,10 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 			"context":  contextSchema(),
 			"disk":     diskSchema(),
 			"graphics": graphicsSchema(),
-			"nic": &schema.Schema{
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "Definition of network adapter(s) assigned to the Virtual Machine",
-				Elem: &schema.Resource{
-					Schema: nicFields(map[string]*schema.Schema{
-						"nic_id": {
-							Type:     schema.TypeInt,
-							Computed: true,
-						},
-						"computed_ip": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"computed_mac": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"computed_model": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"computed_physical_device": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"computed_security_groups": {
-							Type:     schema.TypeList,
-							Computed: true,
-							Elem: &schema.Schema{
-								Type: schema.TypeInt,
-							},
-						},
-					}),
-				},
-			},
-			"os":      osSchema(),
-			"vmgroup": vmGroupSchema(),
-			"tags":    tagsSchema(),
+			"nic":      nicVMSchema(),
+			"os":       osSchema(),
+			"vmgroup":  vmGroupSchema(),
+			"tags":     tagsSchema(),
 			"ip": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -176,6 +141,45 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 				Optional:    true,
 				Description: "Name of the Group that onws the VM, If empty, it uses caller group",
 			},
+		},
+	}
+}
+
+func nicVMSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		Description: "Definition of network adapter(s) assigned to the Virtual Machine",
+		Elem: &schema.Resource{
+			Schema: nicFields(map[string]*schema.Schema{
+				"nic_id": {
+					Type:     schema.TypeInt,
+					Computed: true,
+				},
+				"computed_ip": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+				"computed_mac": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+				"computed_model": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+				"computed_physical_device": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+				"computed_security_groups": {
+					Type:     schema.TypeList,
+					Computed: true,
+					Elem: &schema.Schema{
+						Type: schema.TypeInt,
+					},
+				},
+			}),
 		},
 	}
 }
@@ -421,6 +425,7 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 			nicRead["ip"] = nicConfig["ip"]
 			nicRead["mac"] = nicConfig["mac"]
+			nicRead["model"] = nicConfig["model"]
 			nicRead["physical_device"] = nicConfig["physical_device"]
 			nicRead["security_groups"] = nicConfig["security_groups"]
 
@@ -549,12 +554,19 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		timeout := d.Get("timeout").(int)
 
-		// get the list of disks ID to detach
-		toDetach := diffIDsConfig(attachedDisksCfg, newDisksCfg, "image_id")
+		// get unique elements of each list of configs
+		toDetach, toAttach := diffListConfig(newDisksCfg, attachedDisksCfg,
+			diskSchema(),
+			"image_id")
 
 		// Detach the disks
 		for _, diskIf := range toDetach {
 			diskConfig := diskIf.(map[string]interface{})
+
+			imageID := diskConfig["image_id"].(int)
+			if imageID == -1 {
+				continue
+			}
 
 			diskID := diskConfig["disk_id"].(int)
 
@@ -565,14 +577,15 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			}
 		}
 
-		// get the list of disks to attach
-		toAttach := diffIDsConfig(newDisksCfg, attachedDisksCfg, "image_id")
-
 		// Attach the disks
 		for _, diskIf := range toAttach {
 			diskConfig := diskIf.(map[string]interface{})
 
 			imageID := diskConfig["image_id"].(int)
+			if imageID == -1 {
+				continue
+			}
+
 			diskTpl := makeDiskVector(map[string]interface{}{
 				"image_id": imageID,
 				"target":   diskConfig["target"],
@@ -595,8 +608,14 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		timeout := d.Get("timeout").(int)
 
-		// get the list of nics ID to detach
-		toDetach := diffIDsConfig(attachedNicsCfg, newNicsCfg, "network_id")
+		// get unique elements of each list of configs
+		toDetach, toAttach := diffListConfig(newNicsCfg, attachedNicsCfg,
+			nicVMSchema(),
+			"network_id",
+			"ip",
+			"mac",
+			"security_groups",
+			"physical_device")
 
 		// Detach the nics
 		for _, nicIf := range toDetach {
@@ -610,9 +629,6 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 			}
 		}
-
-		// get the list of nics to attach
-		toAttach := diffIDsConfig(newNicsCfg, attachedNicsCfg, "network_id")
 
 		// Attach the nics
 		for _, nicIf := range toAttach {
