@@ -13,7 +13,7 @@ import (
 	vmk "github.com/OpenNebula/one/src/oca/go/src/goca/schemas/vm/keys"
 )
 
-func nicFields(customFields ...map[string]*schema.Schema) map[string]*schema.Schema {
+func nicFields(customFields ...map[string]*schema.Schema) *schema.Resource {
 
 	fields := map[string]*schema.Schema{
 		"ip": {
@@ -55,7 +55,9 @@ func nicFields(customFields ...map[string]*schema.Schema) map[string]*schema.Sch
 		}
 	}
 
-	return fields
+	return &schema.Resource{
+		Schema: fields,
+	}
 }
 
 func nicSchema() *schema.Schema {

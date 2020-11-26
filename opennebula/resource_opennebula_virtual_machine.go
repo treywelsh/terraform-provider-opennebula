@@ -145,7 +145,7 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 	}
 }
 
-func nicVMFields() *schema.Schema {
+func nicVMFields() *schema.Resource {
 	return nicFields(map[string]*schema.Schema{
 		"nic_id": {
 			Type:     schema.TypeInt,
@@ -182,9 +182,7 @@ func nicVMSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Definition of network adapter(s) assigned to the Virtual Machine",
-		Elem: &schema.Resource{
-			Schema: nicVMFields(),
-		},
+		Elem:        nicVMFields(),
 	}
 }
 
