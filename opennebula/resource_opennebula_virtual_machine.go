@@ -145,41 +145,45 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 	}
 }
 
+func nicVMFields() *schema.Schema {
+	return nicFields(map[string]*schema.Schema{
+		"nic_id": {
+			Type:     schema.TypeInt,
+			Computed: true,
+		},
+		"computed_ip": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_mac": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_model": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_physical_device": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_security_groups": {
+			Type:     schema.TypeList,
+			Computed: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeInt,
+			},
+		},
+	})
+}
+
 func nicVMSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Definition of network adapter(s) assigned to the Virtual Machine",
 		Elem: &schema.Resource{
-			Schema: nicFields(map[string]*schema.Schema{
-				"nic_id": {
-					Type:     schema.TypeInt,
-					Computed: true,
-				},
-				"computed_ip": {
-					Type:     schema.TypeString,
-					Computed: true,
-				},
-				"computed_mac": {
-					Type:     schema.TypeString,
-					Computed: true,
-				},
-				"computed_model": {
-					Type:     schema.TypeString,
-					Computed: true,
-				},
-				"computed_physical_device": {
-					Type:     schema.TypeString,
-					Computed: true,
-				},
-				"computed_security_groups": {
-					Type:     schema.TypeList,
-					Computed: true,
-					Elem: &schema.Schema{
-						Type: schema.TypeInt,
-					},
-				},
-			}),
+			Schema: nicVMFields(),
 		},
 	}
 }
@@ -416,8 +420,8 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 		// copy nic config values
 		nicsConfigs := d.Get("nic").([]interface{})
-		for i := 0; i < len(nicsConfigs); i++ {
-			nicConfig := nicsConfigs[i].(map[string]interface{})
+		for j := 0; j < len(nicsConfigs); j++ {
+			nicConfig := nicsConfigs[j].(map[string]interface{})
 
 			if nicConfig["network_id"] != networkId {
 				continue
@@ -610,7 +614,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		// get unique elements of each list of configs
 		toDetach, toAttach := diffListConfig(newNicsCfg, attachedNicsCfg,
-			nicVMSchema(),
+			nicVMFields(),
 			"network_id",
 			"ip",
 			"mac",
