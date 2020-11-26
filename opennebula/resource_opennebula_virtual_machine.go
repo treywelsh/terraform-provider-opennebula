@@ -648,7 +648,9 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		// get unique elements of each list of configs
 		toDetach, toAttach := diffListConfig(newDisksCfg, attachedDisksCfg,
 			diskVMFields(),
-			"image_id")
+			"image_id",
+			"target",
+			"driver")
 
 		log.Printf("[DEBUG] disk to detach: %s", pretty.Sprint(toDetach))
 		log.Printf("[DEBUG] disk to attach: %s", pretty.Sprint(toAttach))
@@ -680,10 +682,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				continue
 			}
 
-			diskTpl := makeDiskVector(map[string]interface{}{
-				"image_id": imageID,
-				"target":   diskConfig["target"],
-			})
+			diskTpl := makeDiskVector(diskConfig)
 
 			err := vmDiskAttach(vmc, timeout, diskTpl)
 			if err != nil {
