@@ -150,6 +150,15 @@ The following attribute are exported:
 * `state` - State of the virtual machine.
 * `lcmstate` - LCM State of the virtual machine.
 
+
+### NIC
+
+* `computed_ip` - IP of the virtual machine on this network.
+* `computed_mac` - MAC of the virtual machine on this network.
+* `computed_model` - Nic model driver.
+* `computed_physical_device` - Physical device hosting the virtual network.
+* `computed_security_groups` - List of security group IDs to use on the virtual.
+
 ## Instantiate from a template
 
 When the attribute `template_id` is set, here is the behavior:
