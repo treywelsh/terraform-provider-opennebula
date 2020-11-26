@@ -439,8 +439,8 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 		// copy disk config values
 		diskConfigs := d.Get("disk").([]interface{})
-		for i := 0; i < len(diskConfigs); i++ {
-			diskConfig := diskConfigs[i].(map[string]interface{})
+		for j := 0; j < len(diskConfigs); j++ {
+			diskConfig := diskConfigs[j].(map[string]interface{})
 
 			if diskConfig["image_id"] != imageID {
 				continue
