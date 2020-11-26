@@ -188,7 +188,7 @@ func nicVMSchema() *schema.Schema {
 }
 
 func diskVMFields() *schema.Resource {
-	return nicFields(map[string]*schema.Schema{
+	return diskFields(map[string]*schema.Schema{
 		"disk_id": {
 			Type:     schema.TypeInt,
 			Computed: true,
