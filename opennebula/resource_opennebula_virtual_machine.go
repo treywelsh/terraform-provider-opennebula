@@ -656,6 +656,7 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		log.Printf("[DEBUG] disk to attach: %s", pretty.Sprint(toAttach))
 
 		// Detach the disks
+		var diskID int
 		for _, diskIf := range toDetach {
 			diskConfig := diskIf.(map[string]interface{})
 
@@ -664,7 +665,15 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 				continue
 			}
 
-			diskID := diskConfig["disk_id"].(int)
+			// retrieve the the disk_id
+			for _, d := range attachedDisksCfg {
+				cfg := d.(map[string]interface{})
+				if cfg["image_id"].(int) != diskConfig["image_id"].(int) {
+					continue
+				}
+				diskID = cfg["disk_id"].(int)
+				break
+			}
 
 			err := vmDiskDetach(vmc, timeout, diskID)
 			if err != nil {
