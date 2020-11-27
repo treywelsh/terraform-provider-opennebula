@@ -723,10 +723,19 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		log.Printf("[DEBUG] nic to attach: %s", pretty.Sprint(toAttach))
 
 		// Detach the nics
+		var nicID int
 		for _, nicIf := range toDetach {
 			nicConfig := nicIf.(map[string]interface{})
 
-			nicID := nicConfig["nic_id"].(int)
+			// retrieve the the nic_id
+			for _, d := range attachedNicsCfg {
+				cfg := d.(map[string]interface{})
+				if cfg["network_id"].(int) != nicConfig["network_id"].(int) {
+					continue
+				}
+				nicID = cfg["nic_id"].(int)
+				break
+			}
 
 			err := vmNICDetach(vmc, timeout, nicID)
 			if err != nil {
