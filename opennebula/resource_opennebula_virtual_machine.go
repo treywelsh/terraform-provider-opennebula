@@ -638,6 +638,26 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 		}
 	}
 
+	// retrieve nic and disk lists from the template when template_id is provided.
+	// This avoid to detach disks/nics that were added via the template
+	var templateDisks []shared.Disk
+	var templateNICs []shared.NIC
+	if d.HasChange("disk") || d.HasChange("nic") {
+		tplID := d.Get("template_id").(int)
+
+		if tplID != -1 {
+			controller := meta.(*goca.Controller)
+
+			tpl, err := controller.Template(tplID).Info(true, false)
+			if err != nil {
+				return err
+			}
+
+			templateDisks = tpl.Template.GetDisks()
+			templateNICs = tpl.Template.GetNICs()
+		}
+	}
+
 	if d.HasChange("disk") {
 
 		log.Printf("[INFO] Update disk configuration")
@@ -654,6 +674,20 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			"image_id",
 			"target",
 			"driver")
+
+		// avoid to detach disk if the image_id is present in the template
+		for _, tplDisk := range templateDisks {
+			tplImgID, _ := tplDisk.GetI(shared.ImageID)
+
+			for i, diskIf := range toDetach {
+				diskConfig := diskIf.(map[string]interface{})
+				imgID := diskConfig["image_id"].(int)
+
+				if tplImgID == imgID {
+					toDetach = append(toDetach[:i], toDetach[i+1:])
+				}
+			}
+		}
 
 		// get disks to resize
 		_, toResize := diffListConfig(newDisksCfg, attachedDisksCfg,
@@ -750,6 +784,20 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 			"mac",
 			"security_groups",
 			"physical_device")
+
+		// avoid to detach disk if the image_id is present in the template
+		for _, tplNIC := range templateNICs {
+			tplNetID, _ := tplNIC.GetI(shared.NetworkID)
+
+			for i, netIf := range toDetach {
+				netConfig := netIf.(map[string]interface{})
+				netID := netConfig["network_id"].(int)
+
+				if tplNetID == netID {
+					toDetach = append(toDetach[:i], toDetach[i+1:])
+				}
+			}
+		}
 
 		// Detach the nics
 		var nicID int
