@@ -123,16 +123,30 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 				Computed:    true,
 				Description: "Current LCM state of the VM",
 			},
-			"cpu":      cpuSchema(),
-			"vcpu":     vcpuSchema(),
-			"memory":   memorySchema(),
-			"context":  contextSchema(),
-			"disk":     diskVMSchema(),
+			"cpu":     cpuSchema(),
+			"vcpu":    vcpuSchema(),
+			"memory":  memorySchema(),
+			"context": contextSchema(),
+			"disk":    diskVMSchema(),
+			"template_disk": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeInt,
+				},
+			},
 			"graphics": graphicsSchema(),
 			"nic":      nicVMSchema(),
-			"os":       osSchema(),
-			"vmgroup":  vmGroupSchema(),
-			"tags":     tagsSchema(),
+			"template_nic": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeInt,
+				},
+			},
+			"os":      osSchema(),
+			"vmgroup": vmGroupSchema(),
+			"tags":    tagsSchema(),
 			"ip": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -307,6 +321,39 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		if err != nil {
 			return err
 		}
+
+		// store disk image ID
+		disks := tpl.Template.GetDisks()
+		imageIDs := make([]int, 0, len(disks))
+
+		for _, disk := range disks {
+			imageID, _ := disk.GetI(shared.ImageID)
+			imageIDs = append(imageIDs, imageID)
+		}
+
+		if len(imageIDs) > 0 {
+			err := d.Set("template_disk", imageIDs)
+			if err != nil {
+				return err
+			}
+		}
+
+		// store NIC network ID
+		nics := tpl.Template.GetNICs()
+		networkIDs := make([]int, 0, len(nics))
+
+		for _, disk := range nics {
+			networkID, _ := disk.GetI(shared.NetworkID)
+			networkIDs = append(networkIDs, networkID)
+		}
+
+		if len(networkIDs) > 0 {
+			err := d.Set("template_nic", networkIDs)
+			if err != nil {
+				return err
+			}
+		}
+
 	} else {
 		if _, ok := d.GetOk("cpu"); !ok {
 			return fmt.Errorf("cpu is mandatory as template_id is not used")
@@ -425,12 +472,22 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 	disks := vmTemplate.GetDisks()
 	diskList := make([]interface{}, 0, len(disks))
 
+diskLoop:
 	for _, disk := range disks {
+
+		imageID, _ := disk.GetI(shared.ImageID)
+
+		// ignore disks from the template
+		imageIDs := d.Get("template_disk").([]interface{})
+		for _, id := range imageIDs {
+			if id.(int) == imageID {
+				continue diskLoop
+			}
+		}
 
 		size, _ := disk.GetI(shared.Size)
 		driver, _ := disk.Get(shared.Driver)
 		target, _ := disk.Get(shared.TargetDisk)
-		imageID, _ := disk.GetI(shared.ImageID)
 		diskID, _ := disk.GetI(shared.DiskID)
 
 		diskRead := map[string]interface{}{
@@ -478,7 +535,18 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 	nics := vmTemplate.GetNICs()
 	nicList := make([]interface{}, 0, len(nics))
 
+nicLoop:
 	for i, nic := range nics {
+
+		networkID, _ := nic.GetI(shared.NetworkID)
+
+		// ignore disks from the template
+		networkIDs := d.Get("template_nic").([]interface{})
+		for _, id := range networkIDs {
+			if id.(int) == networkID {
+				continue nicLoop
+			}
+		}
 
 		nicID, _ := nic.ID()
 		sg := make([]int, 0)
@@ -486,9 +554,7 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 		mac, _ := nic.Get(shared.MAC)
 		physicalDevice, _ := nic.GetStr("PHYDEV")
 		network, _ := nic.Get(shared.Network)
-
 		model, _ := nic.Get(shared.Model)
-		networkId, _ := nic.GetI(shared.NetworkID)
 		securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
 
 		sgString := strings.Split(securityGroupsArray, ",")
@@ -499,7 +565,7 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 		nicRead := map[string]interface{}{
 			"nic_id":                   nicID,
-			"network_id":               networkId,
+			"network_id":               networkID,
 			"network":                  network,
 			"computed_ip":              ip,
 			"computed_mac":             mac,
@@ -513,7 +579,7 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 		for j := 0; j < len(nicsConfigs); j++ {
 			nicConfig := nicsConfigs[j].(map[string]interface{})
 
-			if nicConfig["network_id"] != networkId {
+			if nicConfig["network_id"] != networkID {
 				continue
 			}
 
