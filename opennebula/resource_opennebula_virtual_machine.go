@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/kr/pretty"
 
 	"github.com/OpenNebula/one/src/oca/go/src/goca"
 	dyn "github.com/OpenNebula/one/src/oca/go/src/goca/dynamic"
@@ -322,16 +323,20 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 			return err
 		}
 
+		//log.Printf("[DEBUG] template disks %s", pretty.Sprint(disks))
+
 		// store disk image ID
 		disks := tpl.Template.GetDisks()
 		imageIDs := make([]int, 0, len(disks))
 
+		log.Printf("[DEBUG] template disks %s", pretty.Sprint(disks))
 		for _, disk := range disks {
 			imageID, _ := disk.GetI(shared.ImageID)
 			imageIDs = append(imageIDs, imageID)
 		}
 
 		if len(imageIDs) > 0 {
+			log.Printf("[DEBUG] Set %s in template_disk", pretty.Sprint(imageIDs))
 			err := d.Set("template_disk", imageIDs)
 			if err != nil {
 				return err
@@ -348,6 +353,7 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		}
 
 		if len(networkIDs) > 0 {
+			log.Printf("[INFO] Set %s in template_disk", pretty.Sprint(networkIDs))
 			err := d.Set("template_nic", networkIDs)
 			if err != nil {
 				return err
