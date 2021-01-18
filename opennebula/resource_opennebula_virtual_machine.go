@@ -149,42 +149,38 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 	}
 }
 
-func nicComputedVMFields() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"nic_id": {
-				Type:     schema.TypeInt,
-				Computed: true,
-			},
-			"computed_ip": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"computed_mac": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"computed_model": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"computed_physical_device": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"computed_security_groups": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeInt,
-				},
+func nicComputedVMFields() map[string]*schema.Schema {
+
+	return map[string]*schema.Schema{
+		"nic_id": {
+			Type:     schema.TypeInt,
+			Computed: true,
+		},
+		"computed_ip": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_mac": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_model": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_physical_device": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_security_groups": {
+			Type:     schema.TypeList,
+			Computed: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeInt,
 			},
 		},
 	}
-}
 
-func nicVMFields() *schema.Resource {
-	return nicFields(nicComputedVMFields().Schema)
 }
 
 func nicComputedVMSchema() *schema.Schema {
@@ -192,8 +188,23 @@ func nicComputedVMSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Network adapter(s) assigned to the Virtual Machine via a template",
-		Elem:        nicComputedVMFields(),
+		Elem: &schema.Resource{
+			Schema: mergeSchemas(nicComputedVMFields(), map[string]*schema.Schema{
+				"network_id": {
+					Type:     schema.TypeInt,
+					Required: true,
+				},
+				"network": {
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+			}),
+		},
 	}
+}
+
+func nicVMFields() map[string]*schema.Schema {
+	return mergeSchemas(nicFields(), nicComputedVMFields())
 }
 
 func nicVMSchema() *schema.Schema {
@@ -201,29 +212,29 @@ func nicVMSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Definition of network adapter(s) assigned to the Virtual Machine",
-		Elem:        nicVMFields(),
+		Elem: &schema.Resource{
+			Schema: nicVMFields(),
+		},
 	}
 }
 
-func diskComputedVMFields() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"disk_id": {
-				Type:     schema.TypeInt,
-				Computed: true,
-			},
-			"computed_size": {
-				Type:     schema.TypeInt,
-				Computed: true,
-			},
-			"computed_target": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"computed_driver": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
+func diskComputedVMFields() map[string]*schema.Schema {
+	return map[string]*schema.Schema{
+		"disk_id": {
+			Type:     schema.TypeInt,
+			Computed: true,
+		},
+		"computed_size": {
+			Type:     schema.TypeInt,
+			Computed: true,
+		},
+		"computed_target": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"computed_driver": {
+			Type:     schema.TypeString,
+			Computed: true,
 		},
 	}
 }
@@ -233,13 +244,21 @@ func diskComputedVMSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Computed:    true,
 		Description: "Disks assigned to the Virtual Machine via a template",
-		Elem:        diskVMFields(),
+		Elem: &schema.Resource{
+			Schema: mergeSchemas(diskComputedVMFields(), map[string]*schema.Schema{
+				"image_id": {
+					Type:        schema.TypeInt,
+					Default:     -1,
+					Optional:    true,
+					Description: "Image Id  of the image to attach to the VM. Defaults to -1: no image attached.",
+				},
+			}),
+		},
 	}
 }
 
-func diskVMFields() *schema.Resource {
-	computed := diskComputedVMFields()
-	return diskFields(computed.Schema)
+func diskVMFields() map[string]*schema.Schema {
+	return mergeSchemas(diskFields(), diskComputedVMFields())
 }
 
 func diskVMSchema() *schema.Schema {
@@ -247,7 +266,9 @@ func diskVMSchema() *schema.Schema {
 		Type:        schema.TypeList,
 		Optional:    true,
 		Description: "Definition of disks assigned to the Virtual Machine",
-		Elem:        diskVMFields(),
+		Elem: &schema.Resource{
+			Schema: diskVMFields(),
+		},
 	}
 }
 
@@ -401,13 +422,22 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 	flattenNICFunc := flattenVMNIC
 	if templateID != -1 {
 
-		if len(d.Get("disk").([]interface{})) > 0 {
+		if len(d.Get("disk").([]interface{})) == 0 {
+			// if no disks overrides those from templates
 			flattenDiskFunc = flattenVMTemplateDisk
+		} else {
+			d.Set("template_disk", []interface{}{})
 		}
 
-		if len(d.Get("nic").([]interface{})) > 0 {
+		if len(d.Get("nic").([]interface{})) == 0 {
+			// if no nics overrides those from templates
 			flattenNICFunc = flattenVMTemplateNIC
+		} else {
+			d.Set("template_nic", []interface{}{})
 		}
+	} else {
+		d.Set("template_nic", []interface{}{})
+		d.Set("template_disk", []interface{}{})
 	}
 
 	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenDiskFunc, flattenNICFunc)
@@ -474,7 +504,7 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenVMDisk, flattenVMNIC)
 }
 
-func flattendDiskComputed(disk shared.Disk) map[string]interface{} {
+func flattenDiskComputed(disk shared.Disk) map[string]interface{} {
 	size, _ := disk.GetI(shared.Size)
 	driver, _ := disk.Get(shared.Driver)
 	target, _ := disk.Get(shared.TargetDisk)
@@ -498,16 +528,18 @@ func flattenVMTemplateDisk(d *schema.ResourceData, vmTemplate *vm.Template) erro
 	diskList := make([]interface{}, 0, len(disks))
 
 	for _, disk := range disks {
-
-		diskRead := flattendDiskComputed(disk)
+		diskRead := flattenDiskComputed(disk)
 		diskList = append(diskList, diskRead)
 	}
 
-	if len(diskList) > 0 {
-		err := d.Set("template_disk", diskList)
-		if err != nil {
-			return err
-		}
+	err := d.Set("template_disk", diskList)
+	if err != nil {
+		return err
+	}
+
+	err = d.Set("disk", []interface{}{})
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -523,7 +555,7 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 	for _, disk := range disks {
 
-		diskRead := flattendDiskComputed(disk)
+		diskRead := flattenDiskComputed(disk)
 
 		// copy disk config values
 		diskConfigs := d.Get("disk").([]interface{})
@@ -601,12 +633,16 @@ func flattenVMTemplateNIC(d *schema.ResourceData, vmTemplate *vm.Template) error
 		}
 	}
 
-	if len(nicList) > 0 {
-		err := d.Set("template_nic", nicList)
-		if err != nil {
-			return err
-		}
+	err := d.Set("template_nic", nicList)
+	if err != nil {
+		return err
 	}
+
+	err = d.Set("nic", []interface{}{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -764,14 +800,18 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		// get unique elements of each list of configs
 		toDetach, toAttach := diffListConfig(newDisksCfg, attachedDisksCfg,
-			diskVMFields(),
+			&schema.Resource{
+				Schema: diskVMFields(),
+			},
 			"image_id",
 			"target",
 			"driver")
 
 		// get disks to resize
 		_, toResize := diffListConfig(newDisksCfg, attachedDisksCfg,
-			diskVMFields(),
+			&schema.Resource{
+				Schema: diskVMFields(),
+			},
 			"image_id",
 			"size")
 
@@ -858,7 +898,9 @@ func resourceOpennebulaVirtualMachineUpdate(d *schema.ResourceData, meta interfa
 
 		// get unique elements of each list of configs
 		toDetach, toAttach := diffListConfig(newNicsCfg, attachedNicsCfg,
-			nicVMFields(),
+			&schema.Resource{
+				Schema: nicVMFields(),
+			},
 			"network_id",
 			"ip",
 			"mac",
