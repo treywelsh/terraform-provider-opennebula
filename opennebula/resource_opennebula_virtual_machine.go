@@ -378,6 +378,15 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		if err != nil {
 			return err
 		}
+
+		err = d.Set("template_disk", "")
+		if err != nil {
+			return err
+		}
+		err = d.Set("template_nic", "")
+		if err != nil {
+			return err
+		}
 	}
 
 	d.SetId(fmt.Sprintf("%v", vmID))
