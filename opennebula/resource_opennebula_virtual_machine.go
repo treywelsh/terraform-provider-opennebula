@@ -283,9 +283,10 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 
 	// If template_id is set to -1 it means not template id to instanciate. This is a workaround
 	// because GetOk helper from terraform considers 0 as a Zero() value from an integer.
-	if v := d.Get("template_id").(int); v != -1 {
+	templateID := d.Get("template_id").(int)
+	if templateID != -1 {
 		// if template id is set, instantiate a VM from this template
-		tc := controller.Template(v)
+		tc := controller.Template(templateID)
 
 		// retrieve the context of the template
 		tpl, err := tc.Info(true, false)
@@ -359,10 +360,29 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		}
 	}
 
-	return resourceOpennebulaVirtualMachineRead(d, meta)
+	// Customize read step to process disk and NIC
+	// from template in a different way.
+	// The goal is to avoid diffs that would trigger
+	// unwanted disk/NIC update
+	flattenDiskFunc := flattenVMDisk
+	flattenNICFunc := flattenVMNIC
+	if templateID != -1 {
+
+		if len(d.Get("disk").([]interface{})) > 0 {
+			flattenDiskFunc = flattenVMTemplateDisk
+		}
+
+		if len(d.Get("nic").([]interface{})) > 0 {
+			flattenNICFunc = flattenVMTemplateNIC
+		}
+	}
+
+	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenDiskFunc, flattenNICFunc)
 }
 
-func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface{}) error {
+type flattenVMPart func(d *schema.ResourceData, vmTemplate *vm.Template) error
+
+func resourceOpennebulaVirtualMachineTemplateReadCustom(d *schema.ResourceData, meta interface{}, flattenDisk, flattenNIC flattenVMPart) error {
 	vmc, err := getVirtualMachineController(d, meta, -2, -1, -1)
 	if err != nil {
 		if NoExists(err) {
@@ -394,12 +414,12 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	err = flattenVMDisk(d, &vm.Template)
+	err = flattenDisk(d, &vm.Template)
 	if err != nil {
 		return err
 	}
 
-	err = flattenVMNIC(d, &vm.Template)
+	err = flattenNIC(d, &vm.Template)
 	if err != nil {
 		return err
 	}
@@ -417,6 +437,49 @@ func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface
 	return nil
 }
 
+func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface{}) error {
+	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenVMDisk, flattenVMNIC)
+}
+
+func flattendDiskComputed(disk shared.Disk) map[string]interface{} {
+	size, _ := disk.GetI(shared.Size)
+	driver, _ := disk.Get(shared.Driver)
+	target, _ := disk.Get(shared.TargetDisk)
+	imageID, _ := disk.GetI(shared.ImageID)
+	diskID, _ := disk.GetI(shared.DiskID)
+
+	return map[string]interface{}{
+		"image_id":        imageID,
+		"disk_id":         diskID,
+		"computed_size":   size,
+		"computed_target": target,
+		"computed_driver": driver,
+	}
+}
+
+// flattenVMTemplateDisk read disk that come from template when instantiating a VM
+func flattenVMTemplateDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
+
+	// Set disks to resource
+	disks := vmTemplate.GetDisks()
+	diskList := make([]interface{}, 0, len(disks))
+
+	for _, disk := range disks {
+
+		diskRead := flattendDiskComputed(disk)
+		diskList = append(diskList, diskRead)
+	}
+
+	if len(diskList) > 0 {
+		err := d.Set("template_disk", diskList)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // flattenVMDisk is similar to flattenDisk but deal with computed_* attributes
 // this is a temporary solution until we can use nested attributes marked computed and optional
 func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
@@ -427,26 +490,14 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 	for _, disk := range disks {
 
-		size, _ := disk.GetI(shared.Size)
-		driver, _ := disk.Get(shared.Driver)
-		target, _ := disk.Get(shared.TargetDisk)
-		imageID, _ := disk.GetI(shared.ImageID)
-		diskID, _ := disk.GetI(shared.DiskID)
-
-		diskRead := map[string]interface{}{
-			"image_id":        imageID,
-			"disk_id":         diskID,
-			"computed_size":   size,
-			"computed_target": target,
-			"computed_driver": driver,
-		}
+		diskRead := flattendDiskComputed(disk)
 
 		// copy disk config values
 		diskConfigs := d.Get("disk").([]interface{})
 		for j := 0; j < len(diskConfigs); j++ {
 			diskConfig := diskConfigs[j].(map[string]interface{})
 
-			if diskConfig["image_id"] != imageID {
+			if diskConfig["image_id"] != diskRead["image_id"] {
 				continue
 			}
 
@@ -470,6 +521,62 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 	return nil
 }
 
+func flattendNICComputed(nic shared.NIC) map[string]interface{} {
+	nicID, _ := nic.ID()
+	sg := make([]int, 0)
+	ip, _ := nic.Get(shared.IP)
+	mac, _ := nic.Get(shared.MAC)
+	physicalDevice, _ := nic.GetStr("PHYDEV")
+	network, _ := nic.Get(shared.Network)
+
+	model, _ := nic.Get(shared.Model)
+	networkId, _ := nic.GetI(shared.NetworkID)
+	securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
+
+	sgString := strings.Split(securityGroupsArray, ",")
+	for _, s := range sgString {
+		sgInt, _ := strconv.ParseInt(s, 10, 32)
+		sg = append(sg, int(sgInt))
+	}
+
+	return map[string]interface{}{
+		"nic_id":                   nicID,
+		"network_id":               networkId,
+		"network":                  network,
+		"computed_ip":              ip,
+		"computed_mac":             mac,
+		"computed_physical_device": physicalDevice,
+		"computed_model":           model,
+		"computed_security_groups": sg,
+	}
+}
+
+// flattenVMTemplateNIC read NIC that come from template when instantiating a VM
+func flattenVMTemplateNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
+
+	// Set Nics to resource
+	nics := vmTemplate.GetNICs()
+	nicList := make([]interface{}, 0, len(nics))
+
+	for i, nic := range nics {
+
+		nicRead := flattendNICComputed(nic)
+		nicList = append(nicList, nicRead)
+
+		if i == 0 {
+			d.Set("ip", nicRead["computed_ip"])
+		}
+	}
+
+	if len(nicList) > 0 {
+		err := d.Set("template_nic", nicList)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // flattenVMNIC is similar to flattenNIC but deal with computed_* attributes
 // this is a temporary solution until we can use nested attributes marked computed and optional
 func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
@@ -480,40 +587,14 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 
 	for i, nic := range nics {
 
-		nicID, _ := nic.ID()
-		sg := make([]int, 0)
-		ip, _ := nic.Get(shared.IP)
-		mac, _ := nic.Get(shared.MAC)
-		physicalDevice, _ := nic.GetStr("PHYDEV")
-		network, _ := nic.Get(shared.Network)
-
-		model, _ := nic.Get(shared.Model)
-		networkId, _ := nic.GetI(shared.NetworkID)
-		securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
-
-		sgString := strings.Split(securityGroupsArray, ",")
-		for _, s := range sgString {
-			sgInt, _ := strconv.ParseInt(s, 10, 32)
-			sg = append(sg, int(sgInt))
-		}
-
-		nicRead := map[string]interface{}{
-			"nic_id":                   nicID,
-			"network_id":               networkId,
-			"network":                  network,
-			"computed_ip":              ip,
-			"computed_mac":             mac,
-			"computed_physical_device": physicalDevice,
-			"computed_model":           model,
-			"computed_security_groups": sg,
-		}
+		nicRead := flattendNICComputed(nic)
 
 		// copy nic config values
 		nicsConfigs := d.Get("nic").([]interface{})
 		for j := 0; j < len(nicsConfigs); j++ {
 			nicConfig := nicsConfigs[j].(map[string]interface{})
 
-			if nicConfig["network_id"] != networkId {
+			if nicConfig["network_id"] != nicRead["network_id"] {
 				continue
 			}
 
