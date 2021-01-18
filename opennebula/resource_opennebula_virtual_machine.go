@@ -23,6 +23,8 @@ var (
 	vmNICUpdateReadyStates  = vmDiskUpdateReadyStates
 )
 
+type flattenVMPart func(d *schema.ResourceData, vmTemplate *vm.Template) error
+
 func resourceOpennebulaVirtualMachine() *schema.Resource {
 	return &schema.Resource{
 		Create:        resourceOpennebulaVirtualMachineCreate,
@@ -186,7 +188,7 @@ func nicComputedVMFields() map[string]*schema.Schema {
 func nicComputedVMSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Optional:    true,
+		Computed:    true,
 		Description: "Network adapter(s) assigned to the Virtual Machine via a template",
 		Elem: &schema.Resource{
 			Schema: mergeSchemas(nicComputedVMFields(), map[string]*schema.Schema{
@@ -412,13 +414,12 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		}
 	}
 
-	// Customize read step to process disk and NIC
-	// from template in a different way.
-	// The goal is to avoid diffs that would trigger
-	// unwanted disk/NIC update
-	flattenDiskFunc := flattenVMDisk
-	flattenNICFunc := flattenVMNIC
+	// Customize read step to process disk and NIC from template in a different way.
+	// The goal is to avoid diffs that would trigger unwanted disk/NIC update.
 	if templateID != -1 {
+
+		flattenDiskFunc := flattenVMDisk
+		flattenNICFunc := flattenVMNIC
 
 		if len(d.Get("disk").([]interface{})) == 0 {
 			// if no disks overrides those from templates
@@ -433,17 +434,18 @@ func resourceOpennebulaVirtualMachineCreate(d *schema.ResourceData, meta interfa
 		} else {
 			d.Set("template_nic", []interface{}{})
 		}
-	} else {
-		d.Set("template_nic", []interface{}{})
-		d.Set("template_disk", []interface{}{})
+
+		return resourceOpennebulaVirtualMachineReadCustom(d, meta, flattenDiskFunc, flattenNICFunc)
+
 	}
 
-	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenDiskFunc, flattenNICFunc)
+	d.Set("template_nic", []interface{}{})
+	d.Set("template_disk", []interface{}{})
+
+	return resourceOpennebulaVirtualMachineRead(d, meta)
 }
 
-type flattenVMPart func(d *schema.ResourceData, vmTemplate *vm.Template) error
-
-func resourceOpennebulaVirtualMachineTemplateReadCustom(d *schema.ResourceData, meta interface{}, flattenDisk, flattenNIC flattenVMPart) error {
+func resourceOpennebulaVirtualMachineReadCustom(d *schema.ResourceData, meta interface{}, flattenDisk, flattenNIC flattenVMPart) error {
 	vmc, err := getVirtualMachineController(d, meta, -2, -1, -1)
 	if err != nil {
 		if NoExists(err) {
@@ -499,7 +501,7 @@ func resourceOpennebulaVirtualMachineTemplateReadCustom(d *schema.ResourceData, 
 }
 
 func resourceOpennebulaVirtualMachineRead(d *schema.ResourceData, meta interface{}) error {
-	return resourceOpennebulaVirtualMachineTemplateReadCustom(d, meta, flattenVMDisk, flattenVMNIC)
+	return resourceOpennebulaVirtualMachineReadCustom(d, meta, flattenVMDisk, flattenVMNIC)
 }
 
 func flattenDiskComputed(disk shared.Disk) map[string]interface{} {
@@ -524,6 +526,7 @@ func flattenVMTemplateDisk(d *schema.ResourceData, vmTemplate *vm.Template) erro
 	diskList := make([]interface{}, 0, len(disks))
 
 	for _, disk := range disks {
+
 		imageID, _ := disk.GetI(shared.ImageID)
 		diskRead := flattenDiskComputed(disk)
 		diskRead["image_id"] = imageID
@@ -531,11 +534,6 @@ func flattenVMTemplateDisk(d *schema.ResourceData, vmTemplate *vm.Template) erro
 	}
 
 	err := d.Set("template_disk", diskList)
-	if err != nil {
-		return err
-	}
-
-	err = d.Set("disk", []interface{}{})
 	if err != nil {
 		return err
 	}
@@ -650,11 +648,6 @@ func flattenVMTemplateNIC(d *schema.ResourceData, vmTemplate *vm.Template) error
 		return err
 	}
 
-	err = d.Set("nic", []interface{}{})
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -671,7 +664,7 @@ NICLoop:
 
 		networkID, _ := nic.GetI(shared.NetworkID)
 
-		// exclude disk from template_nic based on the image_id
+		// exclude NIC from template_nic based on the network_id
 		tplNICConfigs := d.Get("template_nic").([]interface{})
 		for _, tplNICConfigIf := range tplNICConfigs {
 			tplNICConfig := tplNICConfigIf.(map[string]interface{})
