@@ -506,11 +506,9 @@ func flattenDiskComputed(disk shared.Disk) map[string]interface{} {
 	size, _ := disk.GetI(shared.Size)
 	driver, _ := disk.Get(shared.Driver)
 	target, _ := disk.Get(shared.TargetDisk)
-	imageID, _ := disk.GetI(shared.ImageID)
 	diskID, _ := disk.GetI(shared.DiskID)
 
 	return map[string]interface{}{
-		"image_id":        imageID,
 		"disk_id":         diskID,
 		"computed_size":   size,
 		"computed_target": target,
@@ -526,7 +524,9 @@ func flattenVMTemplateDisk(d *schema.ResourceData, vmTemplate *vm.Template) erro
 	diskList := make([]interface{}, 0, len(disks))
 
 	for _, disk := range disks {
+		imageID, _ := disk.GetI(shared.ImageID)
 		diskRead := flattenDiskComputed(disk)
+		diskRead["image_id"] = imageID
 		diskList = append(diskList, diskRead)
 	}
 
@@ -551,9 +551,23 @@ func flattenVMDisk(d *schema.ResourceData, vmTemplate *vm.Template) error {
 	disks := vmTemplate.GetDisks()
 	diskList := make([]interface{}, 0, len(disks))
 
+diskLoop:
 	for _, disk := range disks {
 
+		imageID, _ := disk.GetI(shared.ImageID)
+
+		// exclude disk from template_disk based on the image_id
+		tplDiskConfigs := d.Get("template_disk").([]interface{})
+		for _, tplDiskConfigIf := range tplDiskConfigs {
+			tplDiskConfig := tplDiskConfigIf.(map[string]interface{})
+
+			if tplDiskConfig["image_id"] == imageID {
+				continue diskLoop
+			}
+		}
+
 		diskRead := flattenDiskComputed(disk)
+		diskRead["image_id"] = imageID
 
 		// copy disk config values
 		diskConfigs := d.Get("disk").([]interface{})
@@ -593,7 +607,6 @@ func flattendNICComputed(nic shared.NIC) map[string]interface{} {
 	network, _ := nic.Get(shared.Network)
 
 	model, _ := nic.Get(shared.Model)
-	networkId, _ := nic.GetI(shared.NetworkID)
 	securityGroupsArray, _ := nic.Get(shared.SecurityGroups)
 
 	sgString := strings.Split(securityGroupsArray, ",")
@@ -604,7 +617,6 @@ func flattendNICComputed(nic shared.NIC) map[string]interface{} {
 
 	return map[string]interface{}{
 		"nic_id":                   nicID,
-		"network_id":               networkId,
 		"network":                  network,
 		"computed_ip":              ip,
 		"computed_mac":             mac,
@@ -623,7 +635,9 @@ func flattenVMTemplateNIC(d *schema.ResourceData, vmTemplate *vm.Template) error
 
 	for i, nic := range nics {
 
+		networkID, _ := nic.GetI(shared.NetworkID)
 		nicRead := flattendNICComputed(nic)
+		nicRead["network_id"] = networkID
 		nicList = append(nicList, nicRead)
 
 		if i == 0 {
@@ -652,9 +666,23 @@ func flattenVMNIC(d *schema.ResourceData, vmTemplate *vm.Template) error {
 	nics := vmTemplate.GetNICs()
 	nicList := make([]interface{}, 0, len(nics))
 
+NICLoop:
 	for i, nic := range nics {
 
+		networkID, _ := nic.GetI(shared.NetworkID)
+
+		// exclude disk from template_nic based on the image_id
+		tplNICConfigs := d.Get("template_nic").([]interface{})
+		for _, tplNICConfigIf := range tplNICConfigs {
+			tplNICConfig := tplNICConfigIf.(map[string]interface{})
+
+			if tplNICConfig["network_id"] == networkID {
+				continue NICLoop
+			}
+		}
+
 		nicRead := flattendNICComputed(nic)
+		nicRead["network_id"] = networkID
 
 		// copy nic config values
 		nicsConfigs := d.Get("nic").([]interface{})
