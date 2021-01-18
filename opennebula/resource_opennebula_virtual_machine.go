@@ -192,7 +192,7 @@ func nicComputedVMSchema() *schema.Schema {
 			Schema: mergeSchemas(nicComputedVMFields(), map[string]*schema.Schema{
 				"network_id": {
 					Type:     schema.TypeInt,
-					Required: true,
+					Computed: true,
 				},
 				"network": {
 					Type:     schema.TypeString,
@@ -247,10 +247,8 @@ func diskComputedVMSchema() *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: mergeSchemas(diskComputedVMFields(), map[string]*schema.Schema{
 				"image_id": {
-					Type:        schema.TypeInt,
-					Default:     -1,
-					Optional:    true,
-					Description: "Image Id  of the image to attach to the VM. Defaults to -1: no image attached.",
+					Type:     schema.TypeInt,
+					Computed: true,
 				},
 			}),
 		},
