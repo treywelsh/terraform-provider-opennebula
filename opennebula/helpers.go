@@ -135,7 +135,7 @@ func mergeSchemas(schema map[string]*schema.Schema, schemas ...map[string]*schem
 		return schema
 	}
 
-	for _, m := range schemas[1:] {
+	for _, m := range schemas {
 		for k, v := range m {
 			schema[k] = v
 		}
