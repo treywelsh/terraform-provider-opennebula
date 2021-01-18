@@ -123,16 +123,18 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 				Computed:    true,
 				Description: "Current LCM state of the VM",
 			},
-			"cpu":      cpuSchema(),
-			"vcpu":     vcpuSchema(),
-			"memory":   memorySchema(),
-			"context":  contextSchema(),
-			"disk":     diskVMSchema(),
-			"graphics": graphicsSchema(),
-			"nic":      nicVMSchema(),
-			"os":       osSchema(),
-			"vmgroup":  vmGroupSchema(),
-			"tags":     tagsSchema(),
+			"cpu":           cpuSchema(),
+			"vcpu":          vcpuSchema(),
+			"memory":        memorySchema(),
+			"context":       contextSchema(),
+			"disk":          diskVMSchema(),
+			"template_disk": diskComputedVMSchema(),
+			"graphics":      graphicsSchema(),
+			"nic":           nicVMSchema(),
+			"template_nic":  nicComputedVMSchema(),
+			"os":            osSchema(),
+			"vmgroup":       vmGroupSchema(),
+			"tags":          tagsSchema(),
 			"ip": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -147,36 +149,51 @@ func resourceOpennebulaVirtualMachine() *schema.Resource {
 	}
 }
 
-func nicVMFields() *schema.Resource {
-	return nicFields(map[string]*schema.Schema{
-		"nic_id": {
-			Type:     schema.TypeInt,
-			Computed: true,
-		},
-		"computed_ip": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"computed_mac": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"computed_model": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"computed_physical_device": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"computed_security_groups": {
-			Type:     schema.TypeList,
-			Computed: true,
-			Elem: &schema.Schema{
-				Type: schema.TypeInt,
+func nicComputedVMFields() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"nic_id": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"computed_ip": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"computed_mac": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"computed_model": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"computed_physical_device": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"computed_security_groups": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeInt,
+				},
 			},
 		},
-	})
+	}
+}
+
+func nicVMFields() *schema.Resource {
+	return nicFields(nicComputedVMFields().Schema)
+}
+
+func nicComputedVMSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		Description: "Network adapter(s) assigned to the Virtual Machine via a template",
+		Elem:        nicComputedVMFields(),
+	}
 }
 
 func nicVMSchema() *schema.Schema {
@@ -188,25 +205,41 @@ func nicVMSchema() *schema.Schema {
 	}
 }
 
+func diskComputedVMFields() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"disk_id": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"computed_size": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			"computed_target": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"computed_driver": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+		},
+	}
+}
+
+func diskComputedVMSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Computed:    true,
+		Description: "Disks assigned to the Virtual Machine via a template",
+		Elem:        diskVMFields(),
+	}
+}
+
 func diskVMFields() *schema.Resource {
-	return diskFields(map[string]*schema.Schema{
-		"disk_id": {
-			Type:     schema.TypeInt,
-			Computed: true,
-		},
-		"computed_size": {
-			Type:     schema.TypeInt,
-			Computed: true,
-		},
-		"computed_target": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-		"computed_driver": {
-			Type:     schema.TypeString,
-			Computed: true,
-		},
-	})
+	computed := diskComputedVMFields()
+	return diskFields(computed.Schema)
 }
 
 func diskVMSchema() *schema.Schema {
