@@ -574,10 +574,16 @@ diskLoop:
 
 		// copy disk config values
 		diskConfigs := d.Get("disk").([]interface{})
+
 		for j := 0; j < len(diskConfigs); j++ {
 			diskConfig := diskConfigs[j].(map[string]interface{})
 
-			if diskConfig["image_id"] != diskRead["image_id"] {
+			// try to reidentify the disk based on it's configuration values
+			// image_id is not sufficient in case of an image attached twice
+			if diskConfig["image_id"] != diskRead["image_id"] ||
+				(len(diskConfig["target"].(string)) > 0 && diskConfig["target"] != diskRead["computed_target"]) ||
+				(diskConfig["size"].(int) > 0 && diskConfig["size"] != diskRead["computed_size"]) ||
+				(len(diskConfig["driver"].(string)) > 0 && diskConfig["driver"] != diskRead["computed_driver"]) {
 				continue
 			}
 
